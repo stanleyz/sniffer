@@ -66,8 +66,9 @@ int process(char *path) {
         strcpy(k_char, i_char);
         sprintf(i_char, "%d", ftell(f));
         //printf("  Finished line start with %s, location was %s, location is %s, killed is %d\n", j_char, k_char, i_char, killed);
-        if(i++ == 10) {
+        if(i++ == 500) {
           mark_pos(path, k_char, j_char);
+          i = 0;
         }
         //sleep(1);
       } while(fgets(line, 512, f) != NULL && (killed == 0));
