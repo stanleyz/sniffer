@@ -8,7 +8,10 @@
 
 HOME_PATH=/opt/sniffer
 DAEMON_PROG=$HOME_PATH/sniffer
+A_DAEMON_PROG=$HOME_PATH/analyzer
 PID_FILE=$HOME_PATH/sniffer.pid
+A_PID_FILE=$HOME_PATH/analyzer.pid
+A_LOG_FILE=/var/log/sniffer/analyzer.log
 STOP_TIMEOUT=120
 
 start() {
@@ -17,20 +20,37 @@ start() {
   $DAEMON_PROG -i eth1 not host 10.1.1.82 and not host 10.1.1.83 and not host 10.1.1.84 and not host 10.1.1.85 and not host 10.1.1.86 and not host 10.1.1.87 and not host 10.1.1.88 and not host 10.1.1.91 and not host 10.1.1.92 and not host 10.1.1.93 and not host 10.1.1.125 and not host 10.1.1.128 and not host 10.1.1.5 and not host 10.1.1.25 >> $HOME_PATH/log/sniffer.log 2>/dev/null &
   pid="$!"
   RETVAL=$?
-  [ $RETVAL = 0   ] && success && echo $pid > $PID_FILE
+  [ $RETVAL = 0  ] && success && echo $pid > $PID_FILE
   [ $RETVAL != 0   ] && failure && rm -f $PID_FILE
   echo
-  return $RETVAL;
+
+  echo -n "Starting ${A_DAEMON_PROG##*/}: ";
+  $A_DAEMON_PROG >> $A_LOG_FILE 2>&1 &
+  a_pid="$!"
+  A_RETVAL=$?
+  [ $A_RETVAL = 0  ] && success && echo $a_pid > $A_PID_FILE
+  [ $A_RETVAL != 0   ] && failure && rm -f $A_PID_FILE
+  echo
+
+  return $RETVAL && $A_RETVAL;
 }
 
 stop() {
   echo -n "Stopping ${DAEMON_PROG##*/}: ";
+  killproc -p ${A_PID_FILE} -d ${STOP_TIMEOUT} ${A_DAEMON_PROG}
+  A_RETVAL=$?
+  [ $A_RETVAL = 0  ] && success && rm -f $A_PID_FILE
+  [ $A_RETVAL != 0 ] && failure
+  echo
+
+  echo -n "Stopping ${A_DAEMON_PROG##*/}: ";
   killproc -p ${PID_FILE} -d ${STOP_TIMEOUT} ${DAEMON_PROG}
   RETVAL=$?
-  [ $RETVAL = 0   ] && success && rm -f $PID_FILE
-  [ $RETVAL != 0   ] && failure
+  [ $RETVAL = 0  ] && success && rm -f $PID_FILE
+  [ $RETVAL != 0 ] && failure
   echo
-  return $RETVAL
+
+  return $RETVAL && $A_RETVAL
 }
 
 case "$1" in

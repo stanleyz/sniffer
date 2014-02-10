@@ -2,10 +2,10 @@
 
 killall -9 analyzer
 
-getfattr -d ./log/sniffer.log
-setfattr -x user.analyzer ./log/sniffer.log
-setfattr -x user.analyzer.pos ./log/sniffer.log
-setfattr -x user.analyzer.pos.ts ./log/sniffer.log
-getfattr -d ./log/sniffer.log
+getfattr -d ./log/sniffer.log*
+setfattr -x user.analyzer ./log/sniffer.log*
+setfattr -x user.analyzer.pos ./log/sniffer.log*
+setfattr -x user.analyzer.pos.ts ./log/sniffer.log*
+getfattr -d ./log/sniffer.log*
 
 rm -f analyzer.lck

@@ -20,7 +20,7 @@ void sig_handler(int sig) {
 }
 int main(int argc, char *argv[]) {
   char errbuf[PCAP_ERRBUF_SIZE];
-  char *dev;
+  char *dev = NULL;
   char filter[2048];
   bpf_u_int32 net; 
   bpf_u_int32 mask;

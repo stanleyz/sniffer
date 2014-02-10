@@ -1,16 +1,16 @@
 #include "mysql.h"
 
-MYSQL *conn = NULL;
-
 MYSQL *get_connection() {
   const char *user = "root";
   const char *pass = "root";
   const char *host = "10.1.1.82";
   const char *db = "sniffer";
+  MYSQL *conn = pthread_getspecific(my_con);
   if(conn == NULL) {
     conn = mysql_init(conn);
     mysql_options(conn, MYSQL_OPT_RECONNECT, "1");
     mysql_real_connect(conn, host, user, pass, db, 0, NULL, 0);
+    pthread_setspecific(my_con, conn);
   }
 
   return conn;
@@ -33,9 +33,11 @@ int db_save(char *line[]) {
     }
     printf("%d is %s\n", i_tmp, line[i_tmp]);
   }
+  return;
   */
 
   get_connection();
+  MYSQL *conn = pthread_getspecific(my_con);
 
   strcpy(sql, "SELECT * FROM traffic WHERE date = '");
   strcat(sql, line[0]);
@@ -52,11 +54,12 @@ int db_save(char *line[]) {
   strcat(sql, "';");
 
   //printf("%s\n", sql);
-  if(mysql_query(conn, sql) != 0) {
-    fprintf(stderr, "  Error when executing sql: %s\n", sql);
+  if(i_tmp = mysql_query(conn, sql) != 0) {
+    fprintf(stderr, "  Error %d when executing sql in thread %ld: %s\n", i_tmp, pthread_self(), sql);
     return;
   }
-  mysql_query(conn, sql);
+  //fprintf(stderr, "  success executing sql in thread %ld: %s\n", pthread_self(), sql);
+
   r = mysql_store_result(conn);
   if(r != NULL) {
     row = mysql_fetch_row(r);
@@ -81,6 +84,14 @@ int db_save(char *line[]) {
       }
       save_http_log(line, row[0]);
     } else {
+      char cn_host[CN_LENGTH];
+      if(strcmp(line[3], "TCP") == 0 && line[8] == NULL && (atoi(line[5]) == 443 || atoi(line[5]) == 8443)) {
+        cn_host[0] = '\0';
+        pthread_mutex_lock(&mutex);
+        get_crt_cn(line[2], line[5], cn_host); 
+        pthread_mutex_unlock(&mutex);
+        line[7] = cn_host;
+      }
       strcpy(sql, "INSERT INTO traffic(date, src, d_ip, protocol, size, d_port, 2hit, hostname) VALUES('");
       for(i_tmp = 0; i_tmp < 8; i_tmp++) {
         if(line[i_tmp] == NULL) {
@@ -122,6 +133,7 @@ int save_http_log(const char *line[], const char *traffic_id) {
     strcat(sql, "')");
 
     //printf("%s\n", sql);
+    MYSQL *conn = pthread_getspecific(my_con);
     if(mysql_query(conn, sql) != 0) {
       fprintf(stderr, "  Error when executing sql: %s\n", sql);
       return;

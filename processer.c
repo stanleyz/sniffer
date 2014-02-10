@@ -8,17 +8,17 @@ int analyze_line(char *line[]);
 int mark_pos(const char *path, char *pos, const char *ts);
 int mark_done(const char *path);
 
-int process(char *path) {
+void *process(void *path) {
   char i_char[23];
   char j_char[23];
   char k_char[23];
   char t_char = '0';
-  char line[512];
+  char line[512] = "0";
   int i = 0;
   FILE *f;
 
   getxattr(path, XATTR_ANALYZER, &t_char, 1);
-  printf("\nprocessing file %s\n", path); 
+  printf("\nProcessing file %s \n", path); 
   printf("  attr %s is %d\n", XATTR_ANALYZER, t_char - '0');
   switch(t_char - '0') {
     case X_A_DONE:
@@ -43,19 +43,28 @@ int process(char *path) {
         fseek(f, atol(i_char), SEEK_SET);
         printf("  Moved to pos %d\n", atol(i_char));
         if(fgets(line, 512, f) == NULL) {
+          fclose(f);
           return;
         }
         if(strlen(j_char) != 0 && strncmp(line, j_char, strlen(j_char)) !=0) {
           printf("  The position is not matched: %s, %s", j_char, line);
+          fclose(f);
           return;
         } 
       }
       if(fgets(line, 512, f) == NULL) {
         printf("  End of the file or error occured, will read this file again after 1 min!\n");
-        sleep(60);
+        for(i = 0; i < 60; i++) {
+          sleep(1);
+          if(killed) {
+            fclose(f);
+            return;
+          }
+        }
         if(fgets(line, 512, f) == NULL) {
           printf("  Got EOF in second read, marking this file as finished!\n");
           mark_done(path);
+          fclose(f);
           return;
         }
       }
@@ -65,8 +74,8 @@ int process(char *path) {
         }
         strcpy(k_char, i_char);
         sprintf(i_char, "%d", ftell(f));
-        //printf("  Finished line start with %s, location was %s, location is %s, killed is %d\n", j_char, k_char, i_char, killed);
-        if(i++ == 500) {
+        printf("  Finished line start with %s, location was %s, location is %s, killed is %d\n", j_char, k_char, i_char, killed);
+        if(i++ == 600) {
           mark_pos(path, k_char, j_char);
           i = 0;
         }
@@ -74,8 +83,11 @@ int process(char *path) {
       } while(fgets(line, 512, f) != NULL && (killed == 0));
       mark_pos(path, k_char, j_char);
 
+      MYSQL *conn = pthread_getspecific(my_con);
+      if(conn != NULL) mysql_close(conn);
+      mysql_thread_end();
       fclose(f);
-      break;
+      return;
   }
 }
 
@@ -105,13 +117,36 @@ int read_line(char *line, char *ts) {
   int j = 0;
   char *info[LINE_COLUMNS];
 
+  /*
   info[0] = strstrtok(line, DELIMETER_FOUR);
   for(j = 1; ; j++) {
     i_char = strstrtok(NULL, DELIMETER_FOUR);
     if(i_char == NULL) break;
     info[j] = i_char;
   }
+  */
 
+  for(j = 0; ; j++) {
+    i_char = strstr(line, DELIMETER_FOUR);
+    if(i_char == NULL) {
+      info[j++] = line;
+      info[j] = NULL;
+      //printf("hahaha %d is %s\n", j - 1, info[j - 1]);
+      break;
+    }   
+    *(line + strlen(line) - strlen(i_char)) = '\0';
+    info[j] = line;
+    line = i_char + strlen(DELIMETER_FOUR);
+  }
+
+  /*
+  for(j = 0; j < LINE_COLUMNS; j++) {
+    if(info[j] == NULL) break;
+    if(strcmp(info[j], "\n") == 0) break;
+    printf("%d is %s\n", j, info[j]);
+  }
+  return;
+  */
 
   if(strcmp(info[j - 1], "\n") == 0 && (j == LINE_COLUMNS - 5 || j == LINE_COLUMNS - 2 || j == LINE_COLUMNS)) {
     strcpy(ts, info[0]);
@@ -130,7 +165,7 @@ int analyze_line(char *line[]) {
   char *l[LINE_COLUMNS];
   char date[9];
   char host[30];
-  char cn_host[CN_LENGTH];
+  //char cn_host[CN_LENGTH];
   long i_tmp = 0;
   char *c_tmp;
   struct in_addr addr;
@@ -171,7 +206,8 @@ int analyze_line(char *line[]) {
   sa.sin_family = AF_INET;
   sa.sin_addr.s_addr = inet_addr(c_tmp);
   getnameinfo((struct sockaddr *)&sa, sizeof(sa), host, sizeof(host), NULL, 0, NI_NOFQDN);
-  l[1] = host;
+  if(strlen(host) <= 0) l[1] = c_tmp;
+  else l[1] = host;
 
   l[3] = line[4];
   l[4] = line[1];
@@ -189,11 +225,15 @@ int analyze_line(char *line[]) {
       l[i_tmp] = line[i_tmp]; 
     }
 
+    /*
     if(i_tmp == 8 && (atoi(l[5]) == 443 || atoi(l[5]) == 8443)) {
       cn_host[0] = '\0';
+      pthread_mutex_lock(&mutex);
       get_crt_cn(l[2], l[5], cn_host); 
+      pthread_mutex_unlock(&mutex);
       l[7] = cn_host;
     }
+    */
 
   } else {
     l[5] = NULL;

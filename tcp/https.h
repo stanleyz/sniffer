@@ -7,7 +7,7 @@
 
 #define CN_LENGTH 96
 #define ONE_MONTH 3600*24*30
-#define CN_CACHE_SIZE 20
+#define CN_CACHE_SIZE 2048
 
 struct cn_cache {
   char ip[16];
@@ -20,5 +20,7 @@ struct cn_cache {
 static struct cn_cache cn_cache[CN_CACHE_SIZE];
 
 int get_crt_cn(const char *host, const char *port, char *cn);
+
+void get_cache_status();
 
 #endif

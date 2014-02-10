@@ -12,7 +12,7 @@ A_OBJECTS=analyzer.o tcp/https.o processer.o lib/string.o lib/network.o lib/mysq
 A_TARGET=analyzer
 A_LIBS=-lssl -lcrypto
 
-MYSQL_LIBS=$(shell mysql_config --cflags --libs)
+MYSQL_LIBS=$(shell mysql_config --cflags --libs_r)
 
 all: $(S_TARGET) $(A_TARGET)
 

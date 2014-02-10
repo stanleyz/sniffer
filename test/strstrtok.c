@@ -5,37 +5,32 @@
 char *strstrtok(char *haystack, const char *needle);
 
 int main(int argc, char *argv[]) {
-  int i = 0;
-
-  for(i = 1; ; i++) {
-    printf("%d\n", i);
-    if(i == 20) break;
-  }
-  exit(1);
   char *haystack = argv[1];
   char *needle = argv[2];
   printf("haystack is %s\n", haystack);
   printf("needle is %s\n", needle);
-  //int i = 0;
+  int i = 0, j = 0, k = 0;
   char *s;
+  char *remain;
 
-  printf("haha %s\n", strstrtok(haystack, needle));
   for(i = 0; ; i++) {
-    s = strstrtok(NULL, needle);
-    if(s == NULL) break;
-    printf("%d is %s\n", i, s);
+    remain = strstr(haystack, needle);
+    if(remain == NULL) {
+      printf("last one is %s\n", haystack);
+      break;
+    }
+    *(haystack + strlen(haystack) - strlen(remain)) = '\0';
+    printf("%d is %s\n", i, haystack);
+    haystack = remain + strlen(needle);
   }
 }
 
 char *strstrtok(char *haystack, const char *needle) {
-  static char *remain;
+  char *remain;
   int len;
 
   if(haystack == NULL) {
-    haystack = remain;
-    if(haystack == NULL) {
-      return NULL;
-    }
+    return NULL;
   }
 
   printf("\nhaystack is %s\n", haystack);
